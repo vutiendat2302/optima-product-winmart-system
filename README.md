@@ -1,5 +1,13 @@
+# WinMart Retail Chain Managerment System
+# A. Project Overview:
+WinMart is a supermarket chain establisher by Vingroup, a leading conglomerate in VietNam. 
 
+### Objectives:
+- Manage sales operations (employees, products, inventory, customer information, transaction history).
+- Analyze retail chain data (revenue, inventory levels, best-selling/slow-moving products, promotion/voucher effectiveness, employee performance, customer ordering behavior).
+- Forecast demand and revenue to optimize business decisions.
 
+# B. Functionality: 
 
 
 ## 1. High Level Design:
@@ -16,6 +24,7 @@
             BE[backend]
             FM[forecast] <--> SM
             SM[module]
+            UR[user-role] <--> SM
             SMH[store-management] <--> SM
             EMH[employee-management] <--> SM
             CMH[customer-management] <--> SM
@@ -233,6 +242,58 @@ graph TB
 
 ## 4. Sequence Dagram:
 
+### models:
+
+``` mermaid
+sequenceDiagram
+    participant backend
+    participant store-management
+    participant employee-management
+    participant customer-management
+    participant inventory-management
+    participant user-role
+    participant schedule
+    participant forecast
+    participant database
+    participant aws-s3
+
+    %% Đăng nhập và kiểm tra phân quyền
+    backend->>user-role: kiểm tra quyền truy cập
+    user-role->>database: truy vấn vai trò người dùng
+    database-->>user-role: trả về thông tin role
+    user-role-->>backend: xác thực role OK
+
+    %% Quản lý cửa hàng
+    backend->>store-management: thêm/sửa cửa hàng
+    store-management->>database: ghi dữ liệu cửa hàng
+    database-->>store-management: xác nhận
+    store-management-->>backend: OK
+
+    %% Quản lý nhân sự
+    backend->>employee-management: tạo/chỉnh nhân viên
+    employee-management->>database: lưu thông tin nhân sự
+    database-->>employee-management: OK
+
+    %% Quản lý khách hàng
+    backend->>customer-management: cập nhật khách hàng
+    customer-management->>database: ghi dữ liệu khách hàng
+
+    %% Quản lý kho
+    backend->>inventory-management: xử lý nhập/xuất/kiểm kê kho
+    inventory-management->>database: cập nhật tồn kho
+
+    %% Lịch làm việc
+    backend->>schedule: tạo hoặc chỉnh sửa lịch làm việc
+    schedule->>database: lưu dữ liệu ca làm
+
+    %% Dự báo
+    backend->>forecast: yêu cầu dự báo hàng hóa
+    forecast->>database: lấy dữ liệu lịch sử
+    forecast->>aws-s3: lấy model ML hoặc dữ liệu phụ trợ
+    aws-s3-->>forecast: model/data
+    forecast-->>backend: kết quả dự báo
+```
+
 ### super-admin: 
 ``` mermaid
 sequenceDiagram
@@ -242,54 +303,322 @@ sequenceDiagram
     participant employee-management
     participant customer-management
     participant inventory-management
+    participant user-role
     participant schedule
     participant forecast
     participant database
     participant aws-s3
 
     %% start use case
-    super_admin->>system: đăng nhập hệ thống
+    super-admin->>system: đăng nhập hệ thống
     system->>database: xác thực thông tin
 
     database-->>system: trả kết quả xác thực
-    system-->>super_admin: xác thực thành công
+    system-->>super-admin: xác thực thành công
 
     %% Quản lý cửa hàng
-    super_admin->>system: thêm, sửa, xóa cửa hàng mới
-    system->>store_management: xử lý yêu cầu
-    store_management->>database: ghi thông tin cửa hàng
-    database-->>store_management: xác nhận
-    store_management-->>system: thành công
-    system-->>super_admin: thêm, sửa, xóa cửa hàng thành công
+    super-admin->>system: thêm, sửa, xóa cửa hàng mới
+    system->>store-management: xử lý yêu cầu
+    store-management->>database: ghi thông tin cửa hàng
+    database-->>store-management: xác nhận
+    store-management-->>system: thành công
+    system-->>super-admin: thêm, sửa, xóa cửa hàng thành công
 
     %% Quản lý nhân viên
-    super_admin->>system: thêm, sửa, xóa nhân viên
-    system->>employee_management: xử lý thêm user
-    employee_management->>database: lưu thông tin nhân viên
-    database-->>employee_management: OK
+    super-admin->>system: thêm, sửa, xóa nhân viên, quản lý
+    super-admin ->> system: thêm, sửa, xóa user-role của nhân viên, quản lý
+    system->>employee-management: xử lý thêm user
+    system ->> user-role: xử lý yên cầu
+    employee-management->>database: lưu thông tin nhân viên, quản lý
+    user-role -> database: lưu thông tin
+    database -->> user-role: Ok
+    database-->>employee-management: OK
+    system -->> super-admin: kết quả
 
     %% Quản lý khách hàng
-    super_admin->>system: cập nhật thông tin khách hàng
-    system->>customer_management: gửi yêu cầu
-    customer_management->>database: cập nhật data
+    super-admin->>system: cập nhật thông tin khách hàng
+    system->>customer-management: gửi yêu cầu
+    customer-management->>database: cập nhật data
+
 
     %% Quản lý kho
-    super_admin->>inventory_management: kiểm tra tồn kho
-    inventory_management->>database: truy vấn dữ liệu kho
+    super-admin->>inventory-management: kiểm tra tồn kho
+    inventory-management->>database: truy vấn dữ liệu kho
 
     %% Quản lý lịch làm việc
-    super_admin->>schedule: cập nhật lịch làm việc
+    super-admin->>schedule: cập nhật lịch làm việc
     schedule->>database: ghi thông tin lịch
     schedule->>schedule: tạo lịch làm việc cho nhân viên
 
     %% Dự báo hàng tồn
-    super_admin->>forecast: yêu cầu dự báo hàng hóa
+    super-admin->>forecast: yêu cầu dự báo hàng hóa
     forecast->>database: truy xuất dữ liệu lịch sử
-    forecast->>aws_s3: lấy dữ liệu học máy
-    aws_s3-->>forecast: trả mô hình
-    forecast-->>super_admin: gửi kết quả dự báo
+    forecast->>aws-s3: lấy dữ liệu học máy
+    aws-s3-->>forecast: trả mô hình
+    forecast-->>super-admin: gửi kết quả dự báo
+
+    database->> aws-s3: save data
+    aws-s3->> database: result data
+```
+
+### managers:
+``` mermaid
+sequenceDiagram 
+    participant regional-manager
+    participant area-manager
+    participant store-manager
+    
+    participant system
+    participant store-management
+    participant employee-management
+    participant customer-management
+    participant inventory-management
+    participant schedule
+    participant forecast
+    participant database
+
+    %% regional_manager xem báo cáo vùng
+    regional-manager->>system: yêu cầu báo cáo vùng
+    system->>inventory-management: truy xuất dữ liệu kho theo vùng
+    inventory-management->>database: query tồn kho vùng
+    database-->>inventory-management: dữ liệu tồn kho
+    inventory-management-->>system: dữ liệu đã xử lý
+    system-->>regional-manager: hiển thị báo cáo vùng
+
+    %% area_manager gửi yêu cầu điều phối hàng lên regional_manager
+    area-manager->>regional-manager: gửi yêu cầu điều phối hàng
+    regional-manager-->>area-manager: phê duyệt yêu cầu
+
+    %% area-manager cập nhật lịch làm việc nhân viên
+    area-manager->>system: cập nhật lịch làm việc nhân viên
+    system->>schedule: gửi thông tin ca làm
+    schedule->>database: lưu lịch làm việc
+    database-->>schedule: xác nhận
+    schedule-->>system: OK
+    system-->>area_manager: cập nhật thành công
+
+    %% store_manager xem danh sách nhân viên
+    store-manager->>system: yêu cầu danh sách nhân viên cửa hàng
+    system->>employee-management: query nhân viên theo cửa hàng
+    employee-management->>database: lấy dữ liệu nhân viên
+    database-->>employee-management: danh sách nhân viên
+    employee-management-->>system: trả dữ liệu
+    system-->>store-manager: hiển thị danh sách
+
+    %% store_manager cập nhật tồn kho cửa hàng
+    store-manager->>system: cập nhật tồn kho
+    system->>inventory-management: xử lý yêu cầu cập nhật
+    inventory-management->>database: ghi dữ liệu kho mới
+    database-->>inventory-management: OK
+    inventory-management-->>system: thành công
+    system-->>store-manager: cập nhật thành công
+
+    %% store_manager yêu cầu dự báo tồn kho
+    store-manager->>forecast: gửi yêu cầu dự báo hàng
+    forecast->>database: lấy dữ liệu lịch sử
+    database-->>forecast: dữ liệu quá khứ
+    forecast-->>store-manager: kết quả dự báo
+```
+
+
+### accountant:
+``` mermaid
+sequenceDiagram 
+    participant accountant
+    
+    participant system
+    participant store-management
+    participant employee-management
+    participant customer-management
+    participant inventory-management
+    participant schedule
+    participant forecast
+    participant database
+
+    %% accountant xem báo cáo tài chính
+    accountant->>system: yêu cầu báo cáo tài chính
+    system->>inventory-management: tổng hợp dữ liệu doanh thu, chi phí
+    inventory-management->>database: truy vấn hóa đơn, nhập-xuất
+    database-->>inventory-management: dữ liệu giao dịch
+    inventory-management-->>system: tổng hợp báo cáo
+    system-->>accountant: hiển thị báo cáo tài chính
+
+    %% accountant kiểm toán dòng tiền
+    accountant->>system: kiểm toán dòng tiền
+    system->>database: truy xuất lịch sử giao dịch
+    database-->>system: dữ liệu đầy đủ
+    system-->>accountant: kết quả kiểm toán
+
+    %% accountant xem thông tin nhân viên cửa hàng
+    accountant->>employee-management: xem thông tin lương, ca làm
+    employee-management->>database: truy vấn bảng chấm công
+    database-->>employee-management: dữ liệu nhân sự
+    employee-management-->>accountant: hiển thị thông tin
+
+```
+### staffs:
+``` mermaid
+sequenceDiagram 
+    participant inventory
+    participant warehouse-staff
+    participant pos-cashier
+
+    
+    participant system
+    participant store-management
+    participant employee-management
+    participant customer-management
+    participant inventory-management
+    participant schedule
+    participant forecast
+    participant database
+
+     %% inventory-manager tạo kế hoạch nhập hàng
+    inventory-manager->>system: lên kế hoạch nhập hàng
+    system->>inventory-management: tạo phiếu nhập
+    inventory-management->>database: ghi dữ liệu kế hoạch
+    database-->>inventory-management: OK
+    inventory-management-->>system: thành công
+    system-->>inventory-manager: hiển thị xác nhận
+
+    %% warehouse-staff thực hiện nhập hàng
+    warehouse-staff->>inventory-management: nhập hàng thực tế
+    inventory-management->>database: cập nhật kho
+    database-->>inventory-management: đã cập nhật
+    inventory-management-->>warehouse-staff: xác nhận nhập
+
+    %% warehouse-staff thực hiện xuất hàng
+    warehouse-staff->>inventory-management: xuất hàng theo phiếu
+    inventory-management->>database: giảm tồn kho
+    database-->>inventory-management: OK
+
+    %% pos-cashier tạo hóa đơn bán lẻ
+    pos-cashier->>system: tạo hóa đơn
+    system->>customer-management: nhập thông tin khách hàng
+    customer-management->>database: lưu thông tin KH
+    database-->>customer-management: OK
+    system->>inventory-management: kiểm tra tồn kho
+    inventory-management->>database: xác nhận hàng còn
+    database-->>inventory-management: OK
+    system-->>pos-cashier: tạo hóa đơn thành công
+
+```
+### support & marketing
+``` mermaid
+sequenceDiagram 
+    participant support-staff
+    participant marketing-officer
+    
+    participant system
+    participant store-management
+    participant employee-management
+    participant customer-management
+    participant inventory-management
+    participant schedule
+    participant forecast
+    participant database
+
+     %% support-staff tra cứu đơn hàng
+    support-staff->>system: tra cứu đơn hàng
+    system->>customer-management: tìm thông tin đơn
+    customer-management->>database: query đơn hàng
+    database-->>customer-management: trả kết quả
+    customer-management-->>support-staff: thông tin đơn hàng
+
+    %% support-staff trả lời khách hàng
+    support-staff->>customer-management: cập nhật trạng thái hỗ trợ
+    customer-management->>database: ghi log hỗ trợ
+    database-->>customer-management: xác nhận
+
+    %% marketing-officer tạo chiến dịch quảng cáo
+    marketing-officer->>system: tạo chiến dịch quảng cáo
+    system->>database: lưu nội dung chiến dịch
+    database-->>system: OK
+    system-->>marketing-officer: chiến dịch đã tạo
+
+    %% marketing-officer tạo voucher
+    marketing-officer->>system: tạo voucher mới
+    system->>database: lưu mã voucher
+    database-->>system: OK
 
 ```
 
 
+## 5. State Diagram:
+
+### Login Diagram:
+
+``` mermaid
+stateDiagram-v2
+    [*] --> enter_information
+    enter_information --> check_information
+    check_information --> true
+    check_information --> false
+    false --> enter_information : try_again
+    true --> success
+    success --> [*]
+```
+
+### Information Diagram:
+
+``` mermaid
+stateDiagram-v2
+    [*] --> login
+    login --> no_information
+    login --> information
+    information --> [*] : save
+    information --> update
+    no_information --> update
+    no_information --> [*] : save
+    update --> [*] : save
+```
+
+### Report Diagram:
+
+``` mermaid
+stateDiagram-v2
+    [*] --> login
+    login --> chose_report
+    choose_report --> show_report
+    show_report --> [*] : no_print
+    show_report --> print
+    print --> [*] : print_success
+```
+
+### Pos-Cashier Diagram:
+
+``` mermaid
+stateDiagram-v2
+    cashier --> tiep_nhan_yeu_cau_thanh_toan_hoa_don
+    tiep_nhan_yeu_cau_thanh_toan_hoa_don --> tinh_tong_gia_tri_don_hang : hang_co_ma_vach
+    tiep_nhan_yeu_cau_thanh_toan_hoa_don --> manager : hang_khong_co_ma_vach
+    tinh_tong_gia_tri_don_hang --> in_hoa_don : luu_hoa_don
+    tinh_tong_gia_tri_don_hang --> thanh_toan
+    manager --> cap_nhat_thong_tin
+    in_hoa_don --> [*]
+    thanh_toan --> [*]
+    cap_nhat_thong_tin --> [*]
+```
+
+## 6. Moudel Description: 
+
+### a. forecast-model:
+
+### b. store-management-model:
+
+### c. employee-management-model:
+
+### d. customer-management-model:
+
+### e. inventory-management-model:
+
+### f. schedule-model:
+
+### g. database:
+
+### h. aws-s3:
+
+### j. user-role:
+
+ ## 7. Technology:
 
