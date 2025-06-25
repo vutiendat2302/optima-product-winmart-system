@@ -119,6 +119,7 @@ graph LR
     AM --> R10[Theo dõi tồn kho]
     AM --> R11[Quản lý lịch làm việc của nhân viên]
     AM --> R11_1[Quản lý doanh thu của cửa hàng theo khu vực]
+    AM --> R11_2[Quản lý nhân viên cửa hàng theo khu vực]
 
     SM[store_manager] --> R12[Quản lý kho cửa hàng]
     SM --> R13[Quản lý nhân viên cửa hàng]
@@ -258,33 +259,44 @@ sequenceDiagram
     participant aws-s3
 
     %% Đăng nhập và kiểm tra phân quyền
-    backend->>user-role: kiểm tra quyền truy cập
-    user-role->>database: truy vấn vai trò người dùng
+    backend->>user-role: kiểm tra, thêm, sửa, xóa quyền truy cập
+    user-role->>database: truy vấn vai trò người dùng, ghi dữ liệu 
     database-->>user-role: trả về thông tin role
-    user-role-->>backend: xác thực role OK
+    user-role-->>backend: role result
 
     %% Quản lý cửa hàng
-    backend->>store-management: thêm/sửa cửa hàng
+    backend->>store-management: thêm, sửa, xóa cửa hàng
+    backend ->> store-management: truy suất thông tin cửa hàng, nhân viên, doanh thu
     store-management->>database: ghi dữ liệu cửa hàng
+    store-management->>database: truy suất thông tin
+    database-->>store-management: result
+    store-management-->> backend: store reuslt
     database-->>store-management: xác nhận
     store-management-->>backend: OK
 
     %% Quản lý nhân sự
-    backend->>employee-management: tạo/chỉnh nhân viên
-    employee-management->>database: lưu thông tin nhân sự
-    database-->>employee-management: OK
+    backend->>employee-management: thêm, sửa, xóa user
+    employee-management->>database: cập nhật thông tin nhân sự
+    database-->>employee-management: result
+    employee-management--> backend: result employee
 
     %% Quản lý khách hàng
-    backend->>customer-management: cập nhật khách hàng
-    customer-management->>database: ghi dữ liệu khách hàng
+    backend->>customer-management: cập nhật khách hàng, lấy thông tin khách hàng
+    customer-management->>database: truy suất thông tin khách hàng
+    database-->> customer-management: thông tin khách hàng
+    customer-management -->> backend: result customer
 
     %% Quản lý kho
     backend->>inventory-management: xử lý nhập/xuất/kiểm kê kho
     inventory-management->>database: cập nhật tồn kho
+    database-->> inventory-management: thông tin kho
+    inventory-management -->> backend: result inventory
 
     %% Lịch làm việc
     backend->>schedule: tạo hoặc chỉnh sửa lịch làm việc
     schedule->>database: lưu dữ liệu ca làm
+    schedule->>schedule: auto create schedule
+    schedule -->> backend: schedule result
 
     %% Dự báo
     backend->>forecast: yêu cầu dự báo hàng hóa
@@ -292,6 +304,8 @@ sequenceDiagram
     forecast->>aws-s3: lấy model ML hoặc dữ liệu phụ trợ
     aws-s3-->>forecast: model/data
     forecast-->>backend: kết quả dự báo
+
+    database ->> aws-s3: update data to cloud
 ```
 
 ### super-admin: 
@@ -342,13 +356,18 @@ sequenceDiagram
 
 
     %% Quản lý kho
-    super-admin->>inventory-management: kiểm tra tồn kho
+    super-admin->>inventory-management: kiểm tra tồn kho,  truy xuất dữ liệu
     inventory-management->>database: truy vấn dữ liệu kho
+    database-->> inventory-management: result inventory
+    inventory-management-->>system: result inventory
+    system-->>super-admin: hiện kết quả
 
     %% Quản lý lịch làm việc
-    super-admin->>schedule: cập nhật lịch làm việc
+    super-admin->>schedule: cập nhật, xem lịch làm việc
     schedule->>database: ghi thông tin lịch
     schedule->>schedule: tạo lịch làm việc cho nhân viên
+    database-->> system: schedule result
+    system-->> super-admin: hiện kết quả schedule
 
     %% Dự báo hàng tồn
     super-admin->>forecast: yêu cầu dự báo hàng hóa
@@ -386,16 +405,18 @@ sequenceDiagram
     system-->>regional-manager: hiển thị báo cáo vùng
 
     %% area_manager gửi yêu cầu điều phối hàng lên regional_manager
-    area-manager->>regional-manager: gửi yêu cầu điều phối hàng
-    regional-manager-->>area-manager: phê duyệt yêu cầu
+    area-manager->>system: gửi yêu cầu 
+    system-->>regional-manager: phê duyệt yêu cầu
+    regional-manager-->> system: kết quả 
+    system-->>area-manager: hiển thị kết quả
 
     %% area-manager cập nhật lịch làm việc nhân viên
-    area-manager->>system: cập nhật lịch làm việc nhân viên
+    area-manager->>system: cập nhật lịch làm việc nhân viên, xem lịch làm việc
     system->>schedule: gửi thông tin ca làm
     schedule->>database: lưu lịch làm việc
     database-->>schedule: xác nhận
     schedule-->>system: OK
-    system-->>area_manager: cập nhật thành công
+    system-->>area_manager: cập nhật thành công, hiển thị lịch làm việc
 
     %% store_manager xem danh sách nhân viên
     store-manager->>system: yêu cầu danh sách nhân viên cửa hàng
@@ -405,15 +426,19 @@ sequenceDiagram
     employee-management-->>system: trả dữ liệu
     system-->>store-manager: hiển thị danh sách
 
-    %% store_manager cập nhật tồn kho cửa hàng
-    store-manager->>system: cập nhật tồn kho
-    system->>inventory-management: xử lý yêu cầu cập nhật
-    inventory-management->>database: ghi dữ liệu kho mới
-    database-->>inventory-management: OK
-    inventory-management-->>system: thành công
-    system-->>store-manager: cập nhật thành công
+    store-manager ->> system: xem lịch làm việc
+    system ->>schedule: truy xuất lịch làm việc của cửa hàng
+    schedule ->> database: lấy thông tin lịch làm việc
+    database -->> system: thông tin lịch làm việc
+    system -->> store-manager: hiển thị thông tin lịch làm việc
 
-    %% store_manager yêu cầu dự báo tồn kho
+    %% store_manager 
+    store-manager->>system: lấy thông tin sản phẩm, thông tin của cửa hàng
+    system->>database: xử lý yêu cầu
+    database-->>system: thông tin cửa hàng, sản phẩm
+    system-->>store-manager: hiển thị thông tin sản phẩm ,cửa hàng
+
+    %% store_manager yêu cầu dự báo tồn kho, sản phẩm bán chạy
     store-manager->>forecast: gửi yêu cầu dự báo hàng
     forecast->>database: lấy dữ liệu lịch sử
     database-->>forecast: dữ liệu quá khứ
@@ -437,10 +462,16 @@ sequenceDiagram
 
     %% accountant xem báo cáo tài chính
     accountant->>system: yêu cầu báo cáo tài chính
-    system->>inventory-management: tổng hợp dữ liệu doanh thu, chi phí
+    system->>inventory-management: lấy thông tin xuất, nhập hàng, kiểm xoát doanh thu
+    system->> forecast: tổng hợp dữ liệu doanh thu, chi phí, dự đoán doanh thu, phát triển
     inventory-management->>database: truy vấn hóa đơn, nhập-xuất
-    database-->>inventory-management: dữ liệu giao dịch
-    inventory-management-->>system: tổng hợp báo cáo
+    forecast ->> database: truy vấn dữ liệu doanh thu
+    forecast ->> aws-s3: lấy dữ liệu để tạo mô hình học máy
+    database-->> forecast: dữ liệu doanh thu
+    aws-s3 -->> forecast: dữ liệu doanh thu
+    forecast -->> system: tổng hợp báo cáo tài chính, dự đoán
+    database-->>inventory-management: dữ liệu hàng hóa
+    inventory-management-->>system: tổng hợp báo cáo tình hình hàng hóa trong các kho
     system-->>accountant: hiển thị báo cáo tài chính
 
     %% accountant kiểm toán dòng tiền
@@ -473,13 +504,13 @@ sequenceDiagram
     participant forecast
     participant database
 
-     %% inventory-manager tạo kế hoạch nhập hàng
-    inventory-manager->>system: lên kế hoạch nhập hàng
-    system->>inventory-management: tạo phiếu nhập
+     %% inventory-manager tạo kế hoạch nhập hàng, xuất hàng
+    inventory->>system: lên kế hoạch nhập hàng, xuất hàng
+    system->>inventory-management: tạo phiếu nhập, phiếu xuất
     inventory-management->>database: ghi dữ liệu kế hoạch
     database-->>inventory-management: OK
     inventory-management-->>system: thành công
-    system-->>inventory-manager: hiển thị xác nhận
+    system-->>inventory: hiển thị xác nhận
 
     %% warehouse-staff thực hiện nhập hàng
     warehouse-staff->>inventory-management: nhập hàng thực tế
@@ -501,6 +532,7 @@ sequenceDiagram
     inventory-management->>database: xác nhận hàng còn
     database-->>inventory-management: OK
     system-->>pos-cashier: tạo hóa đơn thành công
+    system-->>database: lưu hóa đơn
 
 ```
 ### support & marketing
@@ -543,7 +575,6 @@ sequenceDiagram
 
 ```
 
-
 ## 5. State Diagram:
 
 ### Login Diagram:
@@ -578,7 +609,7 @@ stateDiagram-v2
 ``` mermaid
 stateDiagram-v2
     [*] --> login
-    login --> chose_report
+    login --> choose_report
     choose_report --> show_report
     show_report --> [*] : no_print
     show_report --> print
@@ -599,6 +630,7 @@ stateDiagram-v2
     thanh_toan --> [*]
     cap_nhat_thong_tin --> [*]
 ```
+
 
 ## 6. Moudel Description: 
 
