@@ -43,7 +43,6 @@ WinMart is a supermarket chain establisher by Vingroup, a leading conglomerate i
 
 
 ## 2. User Roles:
-|Vai trò| Nhiệm vụ|
 
 - super-admin
 - regional-manager
