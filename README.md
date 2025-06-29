@@ -1,4 +1,6 @@
-# WinMart Retail Chain Managerment System
+# WinMart SmartStore Suite 
+<!-- Một công cụ thông minh cho chuỗi cửa hàng -->
+
 # A. Project Overview:
 WinMart is a supermarket chain establisher by Vingroup, a leading conglomerate in VietNam. 
 
@@ -100,8 +102,8 @@ graph TD
 graph LR
     SA[super_admin] --> R1[Quản lý hệ thống]
     SA --> R3[Xem báo cáo toàn chuỗi, vùng, cửa hàng]
-    SA --> R4[Phân quyền] --> ADD[Thêm, sửa, xóa, quản lý, nhân viên]
-    SA --> M1[Quản lý cửa hàng] --> M1_1[Thêm, sửa, xóa cửa hàng, danh mục]
+    SA --> R4[Phân quyền] --> ADD[Thêm, sửa, xóa, update quản lý, nhân viên]
+    SA --> M1[Quản lý cửa hàng] --> M1_1[Thêm, sửa, xóa, update cửa hàng, danh mục]
     SA --> M2[Quản lý  kho]
     SA --> M2_1[Quản lý lịch làm việc]
     SA --> M2_2[Quản lý thông tin users]
@@ -110,7 +112,7 @@ graph LR
     RM[regional_manager] --> R6[Xem báo cáo vùng]
     RM --> R7[Quản lý Area Manager]
     RM --> R8[Phê duyệt tồn kho vùng, theo dõi hàng tồn kho]
-    RM --> M3[Quản lý nhân viên] --> M3_1[Thêm, sửa, xóa, nhân viên]
+    RM --> M3[Quản lý nhân viên] --> M3_1[Thêm, sửa, xóa, update nhân viên]
     RM --> M3_2[Quản lý lịch làm việc của nhân viên]
     RM --> M3_3[Quản lý doanh thu của cửa hàng theo vùng]
 
@@ -238,7 +240,17 @@ graph TB
 ```
 
 ## 3. ERD:
+``` mermaid 
+erDiagram
+    store ||--o{ analyst : analyzes
+    inventory ||--o{ analyst : analyzes
+    inventory ||--o{ import_log : analyzes
+    store ||--o{ import_log : analyzes
+    product ||--o{ store : stored_in
+    user ||--o{ analyst : creates
+    customer ||--o{ store : order
 
+```
 
 ## 4. Sequence Dagram:
 
@@ -634,22 +646,64 @@ stateDiagram-v2
 ## 6. Moudel Description: 
 
 ### a. forecast-model:
+- Function: Dự đoán doanh thu, nhu cầu hàng hóa dựa trên dữ liệu lịch sử bán hàng. 
+
+- Input: Dữ liệu lịch sử đơn hàng, dữ liệu kho, dữ liệu khách hàng.
+
+- Output: Kết quả dự đoán. 
+
+- Related Modules: database, inventory-management-model, schedule-model.
 
 ### b. store-management-model:
+- Function: Quản lý thông tin cửa hàng (tên, địa chỉ, liên hệ, doanh thu), trạng thái hoạt động và người quản lý.
 
+- Input: Thông tin từ người dùng hoặc hệ thống.
+
+- Output: Danh sách cửa hàng, báo cáo doanh thu.
+
+- Related Modules: database, inventory-management-model, user-role.
 ### c. employee-management-model:
+- Function: Quản lý nhân viên (thêm, sửa, phân quyền, phân công).
 
+- Input: Dữ liệu nhân viên, thông tin phân quyền từ user-role.
+
+- Output: Danh sách nhân viên theo từng cửa hàng, vai trò cụ thể.
+
+- Related Modules: database, user-role.
 ### d. customer-management-model:
+- Function: Quản lý thông tin khách hàng và lịch sử mua hàng.
 
+- Input: Thông tin đăng ký, dữ liệu đơn hàng.
+
+- Output: Danh sách khách hàng, thống kê hành vi mua sắm.
+
+- Related Modules: database, order (online/offline), feedback.
 ### e. inventory-management-model:
+- Function: Theo dõi tình trạng hàng tồn, nhập hàng, phân phối hàng hóa từ kho đến cửa hàng.
 
+- Input: Dữ liệu sản phẩm, phiếu nhập kho, dữ liệu từ import_log, import_product.
+
+- Output: Số lượng tồn kho, cảnh báo thiếu hàng.
+
+- Related Modules: database, product, store-management-model.
 ### f. schedule-model:
+- Function: Lịch nhập hàng, lịch khuyến mãi hoặc sự kiện. Lên lịch vận chuyển hàng hóa tự động. Lên lịch làm việc cho nhân viên (tự động sắp xếp lại lịch làm việc khi có sự thay đổi về nhân lực).
 
-### g. database:
+- Input: Lịch từ quản lý, lịch sử làm việc, thông tin nhân viên.
 
-### h. aws-s3:
+- Output: Bảng phân công lịch theo ngày/tuần/tháng.
 
-### j. user-role:
+- Related Modules: employee-management-model, inventory-management-model.
+
+### g. user-role:
+- Function: Quản lý phân quyền người dùng, xác định ai được làm gì trong hệ thống.
+
+- Input: Dữ liệu đăng nhập, vai trò được cấp bởi admin.
+
+- Output: Quyền truy cập từng module, luồng xử lý.
+
+- Related Modules: employee-management-model, store-management-model, schedule-model.
 
  ## 7. Technology:
 
+> backend: 
