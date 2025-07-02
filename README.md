@@ -23,7 +23,7 @@ WinMart is a supermarket chain establisher by Vingroup, a leading conglomerate i
             BE[backend]
             FM[forecast] <--> BE
             MN[manager] <--> BE
-            DB[database_mysql] <--> BE
+            DB[database] <--> BE
             SC[schedule] <--> BE
         end
         BE <--> FE
