@@ -25,6 +25,7 @@ WinMart is a supermarket chain establisher by Vingroup, a leading conglomerate i
             MN[manager] <--> BE
             DB[database] <--> BE
             SC[schedule] <--> BE
+            PM[payment] <--> BE
         end
         BE <--> FE
         
@@ -92,91 +93,142 @@ sequenceDiagram
     BE-->>FE: Trả kết quả (token, thông tin user)
 ```
 
-### super-admin: 
+
+
+### Đặt hàng & thanh toán: 
 ``` mermaid
 sequenceDiagram
-    
+ 
+actor User as Khách hàng
+participant FE as frontend
+participant BE as backend
+participant DB as database
+participant PayS as payment
+
+User ->> FE : Chọn sản phẩm, thêm vào giỏ hàng
+User ->> FE : Nhấn "Đặt hàng"
+FE ->> BE : Tạo đơn hàng (order info)
+BE ->> DB : Kiểm tra tồn kho sản phẩm
+DB -->> BE : Trả kết quả tồn kho
+alt Nếu còn hàng
+    BE ->> DB : Lưu đơn hàng, order_detail
+    BE ->> FE : Thông báo xác nhận đơn hàng
+    User ->> FE : Chọn phương thức thanh toán
+    FE ->> BE : Gửi thông tin thanh toán
+    BE ->> PayS : Xử lý thanh toán
+    PayS ->> DB : Lưu thông tin giao dịch thanh toán
+    PayS -->> BE : Kết quả thanh toán
+    BE ->> DB : Cập nhật trạng thái đơn hàng (đã thanh toán)
+    BE ->> FE : Thông báo kết quả thanh toán cho user
+else Hết hàng
+    BE ->> FE : Thông báo hết hàng
+end
+
 ```
 
-### managers:
+
+### Auto schedule:
 ``` mermaid
 sequenceDiagram 
-    
+    participant frontend
+   participant backend
+    participant schedule_module
+    participant database
+
+opt [00:00 each day]
+    backend ->> schedule_module: Tạo một requet auto lập lịch cho nhân viên 
+    schedule_module ->> database: Lấy dữ liệu lịch làm việc của nhân viên
+    database -->> schedule_module: Trả về thông tin lịch làm việc, ca làm
+    schedule_module -->> schedule_module : Tạo lịch làm việc
+    schedule_module ->> backend: Đề xuất lịch làm việc mới
+    alt Nếu được duyệt
+        backend ->> database: cập nhật lại lịch làm việc
+        backend ->> frontend: Thông báo lịch mới cho nhân viên
+    else Không được duyệt
+    backend ->> schedule_module: Tạo lại lịch làm việc cho nhân viên
+    end
+end
+
 ```
-
-
-### accountant:
+### Auto dự báo:
 ``` mermaid
 sequenceDiagram 
-   
+
+    participant backend
+    participant forecast_module
+    participant database
+
+    opt [00:00 each day]
+        backend ->> forecast_module: tạo request auto dự báo cho từng nhà hàng trong ngày
+        forecast_module ->> database: lấy dữ liệu lịch sử, dữ liệu cần thiết
+        database -->> forecast_module: trả về dữ liệu lịch sử
+        forecast_module -->> forecast_module: xử lý dự báo (ngày, peak lunch, peak dinner)
+        forecast_module ->> backend: trả về kết quả dự báo
+        backend ->> database: lưu kết quả dự báo
+
+    end
 
 ```
-### staffs:
+
+### Auto dự báo doanh thu:
 ``` mermaid
+sequenceDiagram 
 
+    participant backend
+    participant forecast_module
+    participant database
+
+    opt [00:00 each day]
+        backend ->> forecast_module: tạo request auto dự báo doanh thu cho mỗi nhà hàng
+        forecast_module ->> database: lấy dữ liệu lịch sử doanh thu, số lượng khách, hoá đơn
+        database -->> forecast_module: trả về dữ liệu lịch sử
+        forecast_module ->> database: lấy dữ liệu promotion, event, thời tiết, ngày lễ
+        database -->> forecast_module: trả về dữ liệu ảnh hưởng
+        forecast_module -->> forecast_module: tiền xử lý, tổng hợp dữ liệu
+        forecast_module -->> forecast_module: chạy mô hình dự báo doanh thu (theo ngày, theo ca)
+        alt nếu dự báo thành công
+            forecast_module -->> backend: trả kết quả dự báo doanh thu từng ca, từng ngày
+            backend ->> database: lưu kết quả dự báo doanh thu
+            backend ->> forecast_module: status forecast (success)
+        else nếu lỗi dữ liệu hoặc dự báo thất bại
+            forecast_module -->> backend: trả thông báo lỗi/dữ liệu thiếu
+            backend ->> database: log lỗi dự báo doanh thu
+            backend ->> forecast_module: status forecast (failed)
+        end
+    end
 
 ```
-### support & marketing
+
+
+### Quản lý: 
 ``` mermaid
+sequenceDiagram 
 
+   participant frontend
+    participant backend
+    participant manager
+    participant database
+
+
+    frontend ->> backend: yêu cầu xem danh sách nhân viên
+    backend ->> manager: lấy danh sách nhân viên
+    manager ->> database: truy vấn danh sách nhân viên
+    database -->> manager: trả về danh sách nhân viên
+    manager -->> backend: trả về danh sách nhân viên
+    backend ->> frontend: hiển thị danh sách nhân viên
+
+    frontend ->> backend: gửi thông tin nhân viên mới
+    backend ->> manager: tạo mới nhân viên
+    manager ->> database: lưu thông tin nhân viên mới
+    database -->> manager: xác nhận thêm mới
+    manager -->> backend: kết quả tạo mới
+    backend ->> frontend: phản hồi kết quả cho manager
+
+    frontend ->> backend: gửi thông tin cập nhật nhân viên
 
 ```
 
-## 5. State Diagram:
 
-### Login Diagram:
-
-``` mermaid
-stateDiagram-v2
-    [*] --> enter_information
-    enter_information --> check_information
-    check_information --> true
-    check_information --> false
-    false --> enter_information : try_again
-    true --> success
-    success --> [*]
-```
-
-### Information Diagram:
-
-``` mermaid
-stateDiagram-v2
-    [*] --> login
-    login --> no_information
-    login --> information
-    information --> [*] : save
-    information --> update
-    no_information --> update
-    no_information --> [*] : save
-    update --> [*] : save
-```
-
-### Report Diagram:
-
-``` mermaid
-stateDiagram-v2
-    [*] --> login
-    login --> choose_report
-    choose_report --> show_report
-    show_report --> [*] : no_print
-    show_report --> print
-    print --> [*] : print_success
-```
-
-### Pos-Cashier Diagram:
-
-``` mermaid
-stateDiagram-v2
-    cashier --> tiep_nhan_yeu_cau_thanh_toan_hoa_don
-    tiep_nhan_yeu_cau_thanh_toan_hoa_don --> tinh_tong_gia_tri_don_hang : hang_co_ma_vach
-    tiep_nhan_yeu_cau_thanh_toan_hoa_don --> manager : hang_khong_co_ma_vach
-    tinh_tong_gia_tri_don_hang --> in_hoa_don : luu_hoa_don
-    tinh_tong_gia_tri_don_hang --> thanh_toan
-    manager --> cap_nhat_thong_tin
-    in_hoa_don --> [*]
-    thanh_toan --> [*]
-    cap_nhat_thong_tin --> [*]
-```
 
 
 ## 6. Moudel Description: 
